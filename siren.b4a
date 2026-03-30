@@ -1,0 +1,262 @@
+﻿Build1=Default,b4a.example
+File1=Layout.bal
+FileGroup1=Default Group
+Group=Default Group
+Library1=audio
+Library2=core
+Library3=phone
+Library4=runtimepermissions
+Library5=xui
+Library6=javaobject
+ManifestCode='This code will be applied to the manifest file during compilation.~\n~'You do not need to modify it in most cases.~\n~'See this link for for more information: https://www.b4x.com/forum/showthread.php?p=78136~\n~AddManifestText(~\n~<uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34"/>~\n~<supports-screens android:largeScreens="true" ~\n~    android:normalScreens="true" ~\n~    android:smallScreens="true" ~\n~    android:anyDensity="true"/>)~\n~SetApplicationAttribute(android:icon, "@drawable/icon")~\n~SetApplicationAttribute(android:label, "$LABEL$")~\n~CreateResourceFromFile(Macro, Themes.LightTheme)~\n~'End of default text.~\n~AddPermission(android.permission.RECEIVE_SMS)~\n~AddPermission(android.permission.READ_SMS)~\n~~\n~AddPermission(android.permission.WAKE_LOCK)~\n~AddPermission(android.permission.DISABLE_KEYGUARD)~\n~' Разрешение на запуск из фона (для Android 10+)~\n~AddPermission(android.permission.SYSTEM_ALERT_WINDOW) ~\n~
+Module1=Starter
+NumberOfFiles=1
+NumberOfLibraries=6
+NumberOfModules=1
+Version=13.1
+@EndOfDesignText@
+#Region  Project Attributes 
+	#ApplicationLabel: SMS Alarm
+	#VersionCode: 1
+	#VersionName: 1.1
+	#SupportedOrientations: portrait
+	#CanInstallToExternalStorage: False
+#End Region
+
+#Region  Activity Attributes 
+	#FullScreen: False
+	#IncludeTitle: True
+#End Region
+Sub Process_Globals
+	Public SelectedNumbers As List
+	Public Keywords As String = "ОПАСНОСТЬ, ТРЕВОГА, SOS"
+End Sub
+
+Sub Globals
+	' Основной контейнер вкладок
+	Private th As TabHost
+	
+	' Элементы вкладки "Пульт"
+	Private pnlMain As Panel
+	Private btnTest, btnStop As Button
+	Private ivBack As ImageView
+	
+	' Элементы вкладки "Настройки"
+	Private pnlSettings As Panel
+	Private lvSenders As ListView
+	Private edtKeywords As EditText
+	Private lblNums, lblKey As Label
+End Sub
+
+Sub Activity_Create(FirstTime As Boolean)
+	If FirstTime Then SelectedNumbers.Initialize
+	
+	' Запрос разрешений
+	Dim rp As RuntimePermissions
+	rp.CheckAndRequest(rp.PERMISSION_RECEIVE_SMS)
+	Wait For Activity_PermissionResult (Permission As String, Result As Boolean)
+	rp.CheckAndRequest(rp.PERMISSION_READ_SMS)
+	Wait For Activity_PermissionResult (Permission As String, Result As Boolean)
+
+	' Инициализация TabHost
+	th.Initialize("th")
+	Activity.AddView(th, 0, 0, 100%x, 100%y)
+	
+	' Создаем панели программно
+	CreateMainPanel
+	CreateSettingsPanel
+	
+	' Используем AddTab2 для передачи готовых панелей
+	th.AddTab2("ПУЛЬТ", pnlMain)
+	th.AddTab2("НАСТРОЙКИ", pnlSettings)
+	
+	LoadSmsHistory
+End Sub
+
+
+' --- ВКЛАДКА 1: ПУЛЬТ ---
+Sub CreateMainPanel
+	pnlMain.Initialize("pnlMain")
+	
+
+	' 1. Фон всей панели
+	ivBack.Initialize("")
+	pnlMain.AddView(ivBack, 0, 0, 100%x, 100%y)
+	
+	If File.Exists(File.DirAssets, "imagemain.jpg") Then
+		' Загружаем картинку и принудительно растягиваем её, игнорируя искажения (FILL)
+		' Чтобы не было полей, FILL — самый надежный метод в B4A без внешних библиотек
+		ivBack.Bitmap = LoadBitmapResize(File.DirAssets, "imagemain.jpg", 100%x, 100%y, False)
+		ivBack.Gravity = Gravity.FILL
+	End If
+	
+	' 3. Кнопка ТЕСТ (Красная, скругленная)
+	btnTest.Initialize("btnTest")
+	btnTest.Text = "ТЕСТОВЫЙ ЗАПУСК"
+	btnTest.TextColor = Colors.White
+	btnTest.TextSize = 18
+	
+	' Создаем скругленный фон: (Цвет, Радиус в пикселях)
+	Dim cdRed As ColorDrawable
+	cdRed.Initialize(Colors.Red, 20dip)
+	btnTest.Background = cdRed
+	pnlMain.AddView(btnTest, 10%x, 40%y, 80%x, 12%y)
+	
+	' 4. Кнопка ВЫКЛЮЧИТЬ (Зеленая, сильно скругленная)
+	btnStop.Initialize("btnStop")
+	btnStop.Text = "ВЫКЛЮЧИТЬ СИРЕНУ"
+	btnStop.TextColor = Colors.White
+	btnStop.TextSize = 20
+	
+	' Создаем скругленный фон: (Цвет травяной, Радиус 40dip)
+	Dim cdGreen As ColorDrawable
+	cdGreen.Initialize(Colors.RGB(34, 139, 34), 40dip)
+	btnStop.Background = cdGreen
+	pnlMain.AddView(btnStop, 10%x, 55%y, 80%x, 25%y)
+
+End Sub
+
+' --- ВКЛАДКА 2: НАСТРОЙКИ ---
+Sub CreateSettingsPanel
+	pnlSettings.Initialize("pnlSettings")
+	pnlSettings.Color = Colors.RGB(30, 30, 30)
+	
+	lblKey.Initialize("")
+	lblKey.Text = "Ключевые слова (через запятую):"
+	lblKey.TextColor = Colors.Yellow
+	pnlSettings.AddView(lblKey, 5%x, 2%y, 90%x, 5%y)
+	
+	' Поле ключевых слов (Белый текст)
+	edtKeywords.Initialize("edtKeywords")
+	edtKeywords.Text = Keywords
+	edtKeywords.TextColor = Colors.White ' Цвет шрифта белый
+	' Добавим полупрозрачный темный фон для поля, чтобы белый текст был виден
+	edtKeywords.Color = Colors.ARGB(50, 255, 255, 255)
+	pnlSettings.AddView(edtKeywords, 5%x, 7%y, 90%x, 10%y)
+	
+	lblNums.Initialize("")
+	lblNums.Text = "Выберите отправителей:"
+	lblNums.TextColor = Colors.Yellow
+	pnlSettings.AddView(lblNums, 5%x, 20%y, 90%x, 5%y)
+	
+	lvSenders.Initialize("lvSenders")
+	lvSenders.SingleLineLayout.Label.TextSize = 16
+	lvSenders.SingleLineLayout.Label.TextColor = Colors.White
+	pnlSettings.AddView(lvSenders, 5%x, 25%y, 90%x, 65%y)
+End Sub
+
+
+' --- ЛОГИКА ---
+
+Sub LoadSmsHistory
+	Try
+		Dim msgs As SmsMessages
+		Dim listAll As List = msgs.GetAll
+		Dim uniqueNumbers As Map
+		uniqueNumbers.Initialize
+		
+		For i = 0 To listAll.Size - 1
+			Dim m As Sms = listAll.Get(i)
+			uniqueNumbers.Put(m.Address, "")
+		Next
+		
+		UpdateListView(uniqueNumbers)
+	Catch
+		Log(LastException)
+	End Try
+End Sub
+
+' Обновление списка с пометкой выбранных
+Sub UpdateListView(numbersMap As Map)
+	lvSenders.Clear
+	For Each num As String In numbersMap.Keys
+		Dim displayName As String = num
+		' Если номер выбран, добавляем пометку [V]
+		If SelectedNumbers.IndexOf(num) > -1 Then
+			displayName = "✅ " & num
+		End If
+		lvSenders.AddSingleLine2(displayName, num) ' Храним чистый номер в Value
+	Next
+End Sub
+
+Sub lvSenders_ItemClick (Position As Int, Value As Object)
+	Dim num As String = Value
+	Dim idx As Int = SelectedNumbers.IndexOf(num)
+	
+	If idx = -1 Then
+		SelectedNumbers.Add(num)
+	Else
+		SelectedNumbers.RemoveAt(idx)
+	End If
+	
+	' Перегружаем список, чтобы обновить галочки ✅
+	LoadSmsHistory
+End Sub
+
+Sub edtKeywords_TextChanged (Old As String, New As String)
+	Keywords = New
+End Sub
+
+Sub btnTest_Click
+	' 1. Громкость на максимум
+	Dim p As Phone
+	p.SetVolume(p.VOLUME_MUSIC, p.GetMaxVolume(p.VOLUME_MUSIC), True)
+	
+	' 2. Полная перезагрузка плеера (чтобы играл при каждом нажатии)
+	If Starter.player.IsPlaying Then Starter.player.Stop
+	
+	' ПЕРЕЗАГРУЖАЕМ ФАЙЛ (это решает проблему "одного раза")
+	Starter.player.Load(File.DirAssets, "alarm.mp3")
+	Starter.player.Looping = True ' Снова включаем цикл
+	
+	' 3. Запуск
+	Starter.player.Play
+	
+	ToastMessageShow("Тест запущен", False)
+End Sub
+
+Sub Activity_Resume
+	' 1. Принудительно зажигаем экран через WakeLock (библиотека Phone)
+	Dim p As Phone
+	Dim pWake As PhoneWakeState
+	pWake.KeepAlive(True) ' Включает экран и держит его
+	pWake.ReleaseKeepAlive ' Отпускаем, чтобы экран мог погаснуть потом сам
+    
+	' 2. Настройка окна через JavaObject
+	Dim jo As JavaObject
+	Dim window As JavaObject = jo.InitializeContext.RunMethod("getWindow", Null)
+    
+	' Флаги для показа поверх замка
+	Dim flags As Int = Bit.Or(524288, 2097152) ' SHOW_WHEN_LOCKED | TURN_SCREEN_ON
+	flags = Bit.Or(flags, 128) ' KEEP_SCREEN_ON
+	window.RunMethod("addFlags", Array(flags))
+    
+	' 3. Для Android 9+ (API 27+)
+	If p.SdkVersion >= 27 Then
+		jo.InitializeContext.RunMethod("setShowWhenLocked", Array(True))
+		jo.InitializeContext.RunMethod("setTurnScreenOn", Array(True))
+	End If
+End Sub
+
+
+
+
+
+Sub btnStop_Click
+	StopSiren
+End Sub
+
+Sub Activity_KeyPress (KeyCode As Int) As Boolean
+	If Starter.player.IsPlaying Then
+		StopSiren
+		Return True
+	End If
+	Return False
+End Sub
+
+Sub StopSiren
+	If Starter.player.IsPlaying Then
+		Starter.player.Stop
+		ToastMessageShow("Сирена остановлена", False)
+	End If
+End Sub
