@@ -10,6 +10,10 @@ Sub Process_Globals
 	Public player As MediaPlayer ' Изменили Private на Public
 	Private smsInt As SmsInterceptor
 	Private p As Phone ' Добавляем объект Phone для управления громкостью
+	Public SelectedNumbers As List
+	Public Keywords As String = "ОПАСНОСТЬ, ТРЕВОГА"
+	Public AlarmFileDir As String = File.DirAssets
+	Public AlarmFileName As String = "alarm.mp3"
 End Sub
 
 Sub Service_Create
@@ -72,3 +76,38 @@ Sub sms_MessageReceived (From As String, Body As String) As Boolean
 	Return False ' Обычное SMS
 End Sub
 
+Sub ReloadPlayer
+	If player.IsPlaying Then player.Stop
+    
+	Try
+		' 1. Сначала пробуем загрузить файл пользователя
+		If Main.AlarmFileDir = File.DirAssets Then
+			player.Load(File.DirAssets, Main.AlarmFileName)
+		Else
+			' Используем универсальный метод для внешних файлов
+			player.Load(Main.AlarmFileDir, Main.AlarmFileName)
+		End If
+        
+		player.Looping = True
+		Log("Файл успешно загружен: " & Main.AlarmFileName)
+        
+	Catch
+		Log("Ошибка файла! Грузим стандартный alarm.mp3")
+		Try
+			player.Load(File.DirAssets, "alarm.mp3")
+			player.Looping = True
+		Catch
+			Log("Стандартный файл тоже не найден!")
+		End Try
+	End Try
+End Sub
+
+Sub StartSiren
+	' Добавим проверку перед запуском
+	If player.IsInitialized Then
+		player.Play
+		Log("Сирена запущена")
+	Else
+		Log("Ошибка: Плеер не инициализирован")
+	End If
+End Sub
