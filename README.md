@@ -1,6 +1,6 @@
 # 🚨 SMS Alarm
 
-## [📲 СКАЧАТЬ ГОТОВЫЙ APK (v1.1)](https://github.com/demonizer23/SMS-Alarm/releases/download/1.1/siren.apk)
+## [📲 СКАЧАТЬ ГОТОВЫЙ APK (v1.3)](https://github.com/demonizer23/SMS-Alarm/releases/download/1.1/siren.apk)
 
 > **Внимание:** Для работы приложения на Android 10+ необходимо вручную разрешить "Отображение поверх других окон" в настройках смартфона.
 >
