@@ -1,6 +1,6 @@
 # 🚨 SMS Alarm
 
-[![Скачать APK](https://img.shields.io)](https://github.com/demonizer23/SMS-Alarm/releases/download/untagged-d08b2900a556c918856e/siren.apk)
+## [📲 СКАЧАТЬ ГОТОВЫЙ APK (v1.0)](https://github.com/demonizer23/SMS-Alarm/releases/download/untagged-d08b2900a556c918856e/siren.apk)
 
 > **Внимание:** Для работы приложения на Android 10+ необходимо вручную разрешить "Отображение поверх других окон" в настройках смартфона.
 >
