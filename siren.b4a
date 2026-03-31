@@ -32,15 +32,16 @@ Version=13.1
 Sub Process_Globals
 	' Настройки для сохранения
 	Public SelectedNumbers As List
-	Public Keywords As String = "ОПАСНОСТЬ, ТРЕВОГА, SOS"
+	Public Keywords As String = "ОПАСНОСТЬ, ТРЕВОГА"
 	Public AlarmFileDir As String = File.DirAssets
 	Public AlarmFileName As String = "alarm.mp3"
+	Public MaxVolumeEnabled As Boolean = True ' По умолчанию включено
 End Sub
 
 Sub Globals
 	' Элементы TabHost
 	Private th As TabHost
-	
+	Private chkMaxVol As CheckBox
 	' Вкладка ПУЛЬТ
 	Private pnlMain As Panel
 	Private btnTest, btnStop As Button
@@ -122,14 +123,13 @@ End Sub
 Sub CreateSettingsPanel
 	pnlSettings.Initialize("")
 	pnlSettings.Color = Colors.RGB(30, 30, 30)
-	
-	' Подпись ключевых слов
+    
+	' 1. Ключевые слова
 	lblKey.Initialize("")
 	lblKey.Text = "Ключевые слова (через запятую):"
 	lblKey.TextColor = Colors.Yellow
 	pnlSettings.AddView(lblKey, 5%x, 2%y, 90%x, 5%y)
-	
-	' Поле слов (Белый текст, скругленное)
+    
 	edtKeywords.Initialize("edtKeywords")
 	edtKeywords.Text = Keywords
 	edtKeywords.TextColor = Colors.White
@@ -137,8 +137,8 @@ Sub CreateSettingsPanel
 	cdEdit.Initialize(Colors.ARGB(100, 255, 255, 255), 10dip)
 	edtKeywords.Background = cdEdit
 	pnlSettings.AddView(edtKeywords, 5%x, 7%y, 90%x, 10%y)
-	
-	' 1. Кнопка ВЫБРАТЬ СВОЙ (Слева)
+    
+	' 2. Кнопки выбора звука (в один ряд)
 	btnSelectSound.Initialize("btnSelectSound")
 	btnSelectSound.Text = "СВОЙ MP3"
 	btnSelectSound.TextColor = Colors.White
@@ -146,33 +146,47 @@ Sub CreateSettingsPanel
 	Dim cdBlue As ColorDrawable
 	cdBlue.Initialize(Colors.Blue, 10dip)
 	btnSelectSound.Background = cdBlue
-	' Размещаем слева (ширина 45%)
 	pnlSettings.AddView(btnSelectSound, 5%x, 20%y, 44%x, 8%y)
-	
-	' 2. Кнопка ВСТРОЕННЫЙ (Справа)
+    
 	Dim btnDefaultSound As Button
-	btnDefaultSound.Initialize("btnDefaultSound")
+	btnDefaultSound.Initialize("btnDefaultSound") ' Нужно объявить в Globals если еще не сделано
 	btnDefaultSound.Text = "СТАНДАРТ"
 	btnDefaultSound.TextColor = Colors.White
 	btnDefaultSound.TextSize = 14
 	Dim cdGray As ColorDrawable
 	cdGray.Initialize(Colors.DarkGray, 10dip)
 	btnDefaultSound.Background = cdGray
-	' Размещаем справа (ширина 44%)
 	pnlSettings.AddView(btnDefaultSound, 51%x, 20%y, 44%x, 8%y)
-	
-	' Список номеров
+
+	' 3. Чекбокс громкости (чуть ниже кнопок)
+	chkMaxVol.Initialize("chkMaxVol")
+	chkMaxVol.Text = "Максимальная громкость при тревоге"
+	chkMaxVol.TextColor = Colors.White
+	chkMaxVol.Checked = MaxVolumeEnabled
+	pnlSettings.AddView(chkMaxVol, 5%x, 30%y, 90%x, 6%y)
+
+	' 4. Список номеров (Заголовок)
 	lblNums.Initialize("")
 	lblNums.Text = "Выберите отправителей из истории:"
 	lblNums.TextColor = Colors.Yellow
-	pnlSettings.AddView(lblNums, 5%x, 33%y, 90%x, 5%y)
-	
+	' Смещаем на 38%y, чтобы не наезжать на чекбокс
+	pnlSettings.AddView(lblNums, 5%x, 38%y, 90%x, 5%y)
+    
+	' 5. Сам список (ниже заголовка)
 	lvSenders.Initialize("lvSenders")
 	lvSenders.SingleLineLayout.Label.TextColor = Colors.White
 	lvSenders.SingleLineLayout.Label.TextSize = 16
-	pnlSettings.AddView(lvSenders, 5%x, 38%y, 90%x, 55%y)
+	' Начинаем с 44%y и до конца панели
+	pnlSettings.AddView(lvSenders, 5%x, 44%y, 90%x, 50%y)
 End Sub
 
+
+' Обработчик изменения галочки
+
+Sub chkMaxVol_CheckedChange(Checked As Boolean)
+	MaxVolumeEnabled = Checked
+	SaveSettings
+End Sub
 ' --- ЛОГИКА СОХРАНЕНИЯ ---
 
 ' Добавьте библиотеку RandomAccessFile в менеджере библиотек (справа)
@@ -185,8 +199,7 @@ Sub SaveSettings
 	settings.Put("keywords", Keywords)
 	settings.Put("fileDir", AlarmFileDir)
 	settings.Put("fileName", AlarmFileName)
-    
-	' Сохраняем как массив байтов в файл
+	settings.Put("maxVol", MaxVolumeEnabled) ' СОХРАНЯЕМ ГАЛОЧКУ
 	File.WriteBytes(File.DirInternal, "config.dat", ser.ConvertObjectToBytes(settings))
 End Sub
 
@@ -194,22 +207,20 @@ Sub LoadSettings
 	If File.Exists(File.DirInternal, "config.dat") Then
 		Try
 			Dim ser As B4XSerializator
-			Dim bytes() As Byte = File.ReadBytes(File.DirInternal, "config.dat")
-			Dim settings As Map = ser.ConvertBytesToObject(bytes)
+			Dim data() As Byte = File.ReadBytes(File.DirInternal, "config.dat")
+			Dim settings As Map = ser.ConvertBytesToObject(data)
             
-			' Безопасно извлекаем данные
 			SelectedNumbers = settings.GetDefault("numbers", SelectedNumbers)
 			Keywords = settings.GetDefault("keywords", Keywords)
 			AlarmFileDir = settings.GetDefault("fileDir", AlarmFileDir)
 			AlarmFileName = settings.GetDefault("fileName", AlarmFileName)
+			MaxVolumeEnabled = settings.GetDefault("maxVol", True) ' ЗАГРУЖАЕМ ГАЛОЧКУ
 		Catch
-			Log("Ошибка загрузки конфига: " & LastException)
-			SelectedNumbers.Initialize ' Если ошибка, создаем пустой список
+			Log(LastException)
 		End Try
-	Else
-		SelectedNumbers.Initialize
 	End If
 End Sub
+
 
 
 ' --- ОБРАБОТЧИКИ СОБЫТИЙ ---
@@ -220,13 +231,30 @@ End Sub
 
 Sub cc_Result (Success As Boolean, Dir As String, FileName As String)
 	If Success Then
-		AlarmFileDir = Dir
-		AlarmFileName = FileName
-		SaveSettings ' Важно!
-		CallSub(Starter, "ReloadPlayer")
-		ToastMessageShow("Звук изменен!", False)
+		Try
+			' 1. Копируем выбранный файл во внутреннюю память приложения
+			' Это гарантирует, что доступ к файлу не пропадет после перезагрузки
+			File.Copy(Dir, FileName, File.DirInternal, "custom_alarm.mp3")
+            
+			' 2. Теперь путями всегда будут DirInternal и фиксированное имя
+			AlarmFileDir = File.DirInternal
+			AlarmFileName = "custom_alarm.mp3"
+            
+			' 3. Сохраняем эти пути в конфиг
+			SaveSettings
+            
+			' 4. Обновляем плеер
+			CallSub(Starter, "ReloadPlayer")
+            
+			ToastMessageShow("Звук успешно импортирован и сохранен!", False)
+		Catch
+			Log(LastException)
+			ToastMessageShow("Ошибка при копировании файла!", True)
+		End Try
 	End If
 End Sub
+
+
 Sub LoadSmsHistory
 	Try
 		Dim msgs As SmsMessages
@@ -263,11 +291,11 @@ Sub edtKeywords_TextChanged (Old As String, New As String)
 End Sub
 
 Sub btnTest_Click
-	' Максимальная громкость
-	Dim p As Phone
-	p.SetVolume(p.VOLUME_MUSIC, p.GetMaxVolume(p.VOLUME_MUSIC), True)
-	
-	' Перезагрузка и запуск в Starter
+	If MaxVolumeEnabled Then
+		Dim p As Phone
+		p.SetVolume(p.VOLUME_MUSIC, p.GetMaxVolume(p.VOLUME_MUSIC), True)
+	End If
+    
 	CallSub(Starter, "ReloadPlayer")
 	CallSub(Starter, "StartSiren")
 End Sub

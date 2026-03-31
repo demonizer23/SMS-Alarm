@@ -56,15 +56,16 @@ Sub sms_MessageReceived (From As String, Body As String) As Boolean
 		i.SetComponent("b4a.example/.main") ' ЗАМЕНИТЕ b4a.example на ваш Package Name из Project -> Build Configurations
 		i.Flags = 268435456 ' FLAG_ACTIVITY_NEW_TASK
 		StartActivity(i)
-		' 1. Громкость на максимум
-		Dim p As Phone
-		p.SetVolume(p.VOLUME_MUSIC, p.GetMaxVolume(p.VOLUME_MUSIC), True)
+		If Main.MaxVolumeEnabled Then
+			Dim p As Phone
+			p.SetVolume(p.VOLUME_MUSIC, p.GetMaxVolume(p.VOLUME_MUSIC), True)
+		End If	
         
 		' 2. ПРИНУДИТЕЛЬНЫЙ СБРОС И ПЕРЕЗАГРУЗКА
 		If player.IsPlaying Then player.Stop
         
-		' Перезагружаем файл, чтобы сбросить внутренние буферы Android
-		player.Load(File.DirAssets, "alarm.mp3")
+		' ЗАГРУЖАЕМ ВЫБРАННЫЙ ПОЛЬЗОВАТЕЛЕМ ФАЙЛ
+		player.Load(Main.AlarmFileDir, Main.AlarmFileName)
 		player.Looping = True ' Включаем повтор
         
 		' 3. Запуск
